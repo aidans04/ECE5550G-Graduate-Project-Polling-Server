@@ -3,17 +3,17 @@
 
 #include <Arduino_FreeRTOS.h>
 
-typedef struct PollingServer
-{
-    TaskHandle_t xTaskHandle;
-    TickType_t xPeriod;
-    TickType_t xExecutionTime;
-    BaseType_t xIsActive;
-} PollingServer_t;
+#define MAX_APERIODIC_TASKS 5
 
-void vPollingServerInit( PollingServer_t *pxServer, TickType_t xPeriod, TickType_t xExecutionTime );
-void vPollingServerStart( PollingServer_t *pxServer );
-void vPollingServerStop( PollingServer_t *pxServer );
+struct xAPeriodicTask {
+    TaskFunction_t pvTaskCode;
+    //const char *pcName;
+    void *pvParameters;
+    TickType_t xReleaseTime;
+}
+
+void addAperiodicTask( TaskFunction_t pvTaskCode, void *pvParameters, TickType_t xReleaseTime );
+void prvRemoveAperiodicTask( xAperiodicTask pvTask );
 void prvPollingServerTask( void *pvParameters );
 
 #endif /* POLLING_H_ */

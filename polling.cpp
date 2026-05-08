@@ -1,42 +1,51 @@
 #include "polling.h"
 
-void vPollingServerInit( PollingServer_t *pxServer, TickType_t xPeriod, TickType_t xExecutionTime )
-{
-    pxServer->xTaskHandle = NULL;
-    pxServer->xPeriod = xPeriod;
-    pxServer->xExecutionTime = xExecutionTime;
-    pxServer->xIsActive = pdFALSE;
-}
+static xAPeriodicTask xAperiodicTasks[ MAX_APERIODIC_TASKS ];
+static int xAperiodicTaskCount = 0;
 
-void vPollingServerStart( PollingServer_t *pxServer )
+void addAperiodicTask( TaskFunction_t pvTaskCode, void *pvParameters, TickType_t xReleaseTime )
 {
-    if ( pxServer->xIsActive == pdFALSE )
+    if ( xAperiodicTaskCount < MAX_APERIODIC_TASKS )
     {
-        xTaskCreate( prvPollingServerTask, "PollingServer", configMINIMAL_STACK_SIZE, ( void * ) pxServer, tskIDLE_PRIORITY + 1, &pxServer->xTaskHandle );
-        pxServer->xIsActive = pdTRUE;
+        xAperiodicTasks[ xAperiodicTaskCount ].pvTaskCode = pvTaskCode;
+        xAperiodicTasks[ xAperiodicTaskCount ].pvParameters = pvParameters;
+        xAperiodicTasks[ xAperiodicTaskCount ].xReleaseTime = xReleaseTime;
+        xAperiodicTaskCount++;
     }
 }
 
-void vPollingServerStop( PollingServer_t *pxServer )
+void prvRemoveAperiodicTask( xAPeriodicTask pvTask )
 {
-    if ( pxServer->xIsActive == pdTRUE )
+    for ( int i = 0; i < xAperiodicTaskCount; i++ )
     {
-        vTaskDelete( pxServer->xTaskHandle );
-        pxServer->xTaskHandle = NULL;
-        pxServer->xIsActive = pdFALSE;
+        if ( xAperiodicTasks[ i ] == pvTask )
+        {
+            // Shift remaining tasks down
+            for ( int j = i; j < xAperiodicTaskCount - 1; j++ )
+            {
+                xAperiodicTasks[ j ] = xAperiodicTasks[ j + 1 ];
+            }
+            xAperiodicTaskCount--;
+            break;
+        }
     }
 }
 
-static void prvPollingServerTask( void *pvParameters )
+void prvPollingServerTask( void *pvParameters )
 {
-    PollingServer_t *pxServer = ( PollingServer_t * ) pvParameters;
-    TickType_t xLastWakeTime = xTaskGetTickCount();
-
-    for ( ; ; )
+    // POLLING SERVER TASK CODE, checks current time against xReleaseTime of each aperiodic task and executes them if their time has come
+    // no loop required since scheduler will call this task periodically, just check for tasks to execute and execute
+    TickType_t xCurrentTime = xTaskGetTickCount();
+    for ( int i = 0; i < xAperiodicTaskCount; i++ )
     {
-        vTaskDelayUntil( &xLastWakeTime, pxServer->xPeriod );
-
-        // Simulate work by delaying for the specified execution time
-        vTaskDelay( pxServer->xExecutionTime );
+        if ( xCurrentTime >= xAperiodicTasks[ i ].xReleaseTime )
+        {
+            // Execute the aperiodic task
+            xAperiodicTasks[ i ].pvTaskCode( xAperiodicTasks[ i ].pvParameters );
+            // Remove the task from the list after execution
+            prvRemoveAperiodicTask( xAperiodicTasks[ i ] );
+            xAperiodicTaskCount--; // Decrement the count after removing the task
+        }
     }
+
 }
