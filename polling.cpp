@@ -14,25 +14,22 @@ void addAperiodicTask( TaskFunction_t pvTaskCode, void *pvParameters, TickType_t
     }
 }
 
-void prvRemoveAperiodicTask( xAPeriodicTask pvTask )
+void prvRemoveAperiodicTask( int index )
 {
-    for ( int i = 0; i < xAperiodicTaskCount; i++ )
+    if ( index >= 0 && index < xAperiodicTaskCount )
     {
-        if ( xAperiodicTasks[ i ] == pvTask )
+        // Shift remaining tasks down
+        for ( int j = index; j < xAperiodicTaskCount - 1; j++ )
         {
-            // Shift remaining tasks down
-            for ( int j = i; j < xAperiodicTaskCount - 1; j++ )
-            {
-                xAperiodicTasks[ j ] = xAperiodicTasks[ j + 1 ];
-            }
-            xAperiodicTaskCount--;
-            break;
+            xAperiodicTasks[ j ] = xAperiodicTasks[ j + 1 ];
         }
+        xAperiodicTaskCount--;
     }
 }
 
-void prvPollingServerTask( void *pvParameters )
+void pollingServerTask( void *pvParameters )
 {
+    Serial.print( "Polling Server Task Started: " ); Serial.println( xTaskGetTickCount() );
     // POLLING SERVER TASK CODE, checks current time against xReleaseTime of each aperiodic task and executes them if their time has come
     // no loop required since scheduler will call this task periodically, just check for tasks to execute and execute
     TickType_t xCurrentTime = xTaskGetTickCount();
@@ -43,9 +40,10 @@ void prvPollingServerTask( void *pvParameters )
             // Execute the aperiodic task
             xAperiodicTasks[ i ].pvTaskCode( xAperiodicTasks[ i ].pvParameters );
             // Remove the task from the list after execution
-            prvRemoveAperiodicTask( xAperiodicTasks[ i ] );
-            xAperiodicTaskCount--; // Decrement the count after removing the task
+            prvRemoveAperiodicTask( i );
+            Serial.print( "Executed Aperiodic Task at: " ); Serial.println( xTaskGetTickCount() );
+            return; // Exit after executing one task to allow other tasks to run, will check for next task in next period
         }
     }
-
+    Serial.print( "No Aperiodic Tasks to Execute at: " ); Serial.println( xTaskGetTickCount() );
 }

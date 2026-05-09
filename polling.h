@@ -2,6 +2,7 @@
 #define POLLING_H_
 
 #include <Arduino_FreeRTOS.h>
+#include <Arduino.h>
 
 #define MAX_APERIODIC_TASKS 5
 
@@ -10,10 +11,10 @@ struct xAPeriodicTask {
     //const char *pcName;
     void *pvParameters;
     TickType_t xReleaseTime;
-}
+};
 
 void addAperiodicTask( TaskFunction_t pvTaskCode, void *pvParameters, TickType_t xReleaseTime );
-void prvRemoveAperiodicTask( xAperiodicTask pvTask );
-void prvPollingServerTask( void *pvParameters );
+void prvRemoveAperiodicTask( int index );
+void pollingServerTask( void *pvParameters );
 
 #endif /* POLLING_H_ */
